@@ -16,25 +16,28 @@ Frontend (React) ─► Backend (FastAPI) ─► Neo4j (граф) + Chroma (ве
                          └─► Ollama · qwen2.5 (извлечение сущностей + генерация ответов)
 ```
 
-## LLM — компактная открытая модель, два режима
+## LLM — компактная открытая модель `qwen2.5:3b-instruct`
 
-Извлечение сущностей и ответы работают на **открытой 7B-модели** `qwen2.5-7b-instruct`
-(RU/EN, structured JSON). Осознанно берём 7B, а не 70B — экономия ресурсов при сохранении
-точности. Провайдер переключается одной переменной `LLM_PROVIDER`:
+Извлечение сущностей и ответы работают на **компактной открытой 3B-модели**
+`qwen2.5:3b-instruct` (~1.9 ГБ): сильный RU/EN, держит structured JSON. Осознанно берём 3B —
+экономия ресурсов при сохранении точности (критерий оргов). Провайдер переключается одной
+переменной `LLM_PROVIDER` (см. `.env.example`):
 
-**A) OpenRouter (по умолчанию)** — OpenAI-совместимый API, непроприетарные модели, разрешён в РФ:
+**A) Ollama как сервис в docker-compose (по умолчанию)** — ничего ставить не надо:
+`docker compose up` сам поднимет контейнер `ollama` и **автоматически скачает модель**
+(сервис `ollama-pull`). Данные не покидают контур.
+- На **Linux + NVIDIA**: раскомментируй блок `deploy` у сервиса `ollama` в compose → GPU.
+- На **Mac**: контейнерный Ollama идёт на CPU. Для скорости (Metal) — host-Ollama:
+  ```bash
+  brew services start ollama && ollama pull qwen2.5:3b-instruct
+  # в .env: OLLAMA_HOST=http://host.docker.internal:11434
+  docker compose up -d --scale ollama=0 --scale ollama-pull=0
+  ```
+
+**B) OpenRouter** — OpenAI-совместимый, разрешён в РФ (но бесплатные `:free` часто дают 429):
 ```bash
-# в .env:
-LLM_PROVIDER=openai
-LLM_MODEL=qwen/qwen-2.5-7b-instruct
-OPENAI_API_KEY=sk-or-...          # ключ с https://openrouter.ai/keys
-```
-
-**B) Ollama (локально, приватно)** — данные не покидают контур:
-```bash
-brew install ollama && brew services start ollama
-ollama pull qwen2.5:7b-instruct
-# в .env: LLM_PROVIDER=ollama, LLM_MODEL=qwen2.5:7b-instruct
+# в .env: LLM_PROVIDER=openai, LLM_MODEL=qwen/qwen3-next-80b-a3b-instruct:free,
+#         OPENAI_API_KEY=sk-or-...  (ключ с https://openrouter.ai/keys)
 ```
 
 Эмбеддинги — опенсорс `multilingual-e5-large` через **fastembed** (ONNX, без torch), локально.

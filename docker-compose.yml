@@ -41,12 +41,14 @@ services:
       NEO4J_PASSWORD: scigraph123
       CHROMA_HOST: chroma
       CHROMA_PORT: "8000"
-      # LLM: локальный Ollama по умолчанию (приватно); OpenRouter — альтернатива через .env
+      # LLM: локальный Ollama-сервис по умолчанию (приватно, self-contained).
+      # OpenRouter — альтернатива через .env. На Mac для скорости (Metal):
+      # OLLAMA_HOST=http://host.docker.internal:11434 + свой `ollama serve` на хосте.
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
-      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b-instruct}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b-instruct}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://openrouter.ai/api/v1}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
     extra_hosts:
@@ -58,6 +60,45 @@ services:
       neo4j:
         condition: service_healthy
       chroma:
+        condition: service_healthy
+
+  # Локальная LLM как self-contained сервис.
+  # На Linux с NVIDIA — раскомментируй блок deploy для GPU (иначе CPU).
+  # На Mac контейнер идёт на CPU (Metal недоступен из Docker) — для скорости
+  # лучше host-Ollama: подними `ollama serve` на хосте и задай в .env
+  # OLLAMA_HOST=http://host.docker.internal:11434 (этот сервис можно не запускать:
+  # docker compose up -d --scale ollama=0 --scale ollama-pull=0).
+  ollama:
+    image: ollama/ollama:latest
+    container_name: scigraph-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    # --- GPU (Linux + NVIDIA) ---
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Одноразовый пуллер: скачивает модель в сервис ollama и завершается.
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: scigraph-ollama-pull
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${LLM_MODEL:-qwen2.5:3b-instruct}"]
+    restart: "no"
+    depends_on:
+      ollama:
         condition: service_healthy
 
   frontend:
@@ -77,3 +118,4 @@ volumes:
   neo4j_data:
   chroma_data:
   hf_cache:
+  ollama_models:
