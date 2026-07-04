@@ -16,13 +16,13 @@ Frontend (React) ─► Backend (FastAPI) ─► Neo4j (граф) + Chroma (ве
                          └─► Ollama · qwen2.5 (извлечение сущностей + генерация ответов)
 ```
 
-## LLM — открытая модель Qwen2.5 (квантованная)
+## LLM — открытая модель Qwen3 (квантованная)
 
-Извлечение сущностей и ответы работают на **открытой модели `qwen2.5:14b-instruct`**
-(Q4 ≈9 ГБ, нужно ~10-11 ГБ RAM): сильный RU/EN, держит structured JSON. Модель — это просто
-строка `LLM_MODEL`, легко сменить под железо: `qwen2.5:3b-instruct` (~1.9 ГБ) или `7b` (~4.7 ГБ);
-другая квантизация — тег вида `qwen2.5:14b-instruct-q4_0`. Провайдер переключается переменной
-`LLM_PROVIDER` (см. `.env.example`):
+Извлечение сущностей и ответы работают на **открытой модели `qwen3:4b`**
+(Q4 ~2.5 ГБ, нужно ~5-6 ГБ RAM): свежий Qwen3, сильный RU/EN, держит structured JSON.
+Режим «thinking» отключается автоматически (`/no_think` + зачистка `<think>`). Модель — это
+просто строка `LLM_MODEL`, легко сменить под железо: точнее — `qwen2.5:14b-instruct` (~9 ГБ) или
+`qwen3:8b` (~5 ГБ); слабее — `qwen3:1.7b`. Провайдер переключается `LLM_PROVIDER` (см. `.env.example`):
 
 **A) Ollama как сервис в docker-compose (по умолчанию)** — ничего ставить не надо:
 `docker compose up` сам поднимет контейнер `ollama` и **автоматически скачает модель**
@@ -57,16 +57,23 @@ Frontend (React) ─► Backend (FastAPI) ─► Neo4j (граф) + Chroma (ве
    - Frontend: http://localhost:5273
    - Backend API: http://localhost:8010/docs
    - Neo4j Browser: http://localhost:7474 (neo4j / scigraph123)
-   - Проверка LLM: `curl http://localhost:8010/health`
 
-3. Проиндексируй корпус (данные в `backend/data/corpus/`, рекурсивно, форматы pdf/docx/pptx):
+3. **Дождись скачивания модели** (при первом старте `ollama-pull` тянет ~2.5 ГБ).
+   Готовность — когда в ответе `"model_pulled": true`:
    ```bash
-   # фоново, возобновляемо; следи за прогрессом
-   curl -X POST "http://localhost:8010/ingest?reset=true"
-   curl http://localhost:8010/ingest/status
+   curl http://localhost:8010/health
    ```
 
-4. Открой http://localhost:5273 и задавай вопросы (граф достраивается по мере ингеста).
+4. Проиндексируй данные (фоново, возобновляемо). Если корпус ещё не скачан —
+   автоматически берётся демо-сид (4 документа), и приложение сразу рабочее:
+   ```bash
+   curl -X POST "http://localhost:8010/ingest?reset=true"
+   curl http://localhost:8010/ingest/status      # прогресс / ETA
+   ```
+
+5. Открой http://localhost:5273 и задавай вопросы (граф достраивается по мере ингеста).
+
+> Быстрее через `make`: `make up` → `make health` → `make ingest` → `make status`. Тесты: `make test`.
 
 ## Работа с полным корпусом (1453 файла)
 

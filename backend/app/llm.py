@@ -4,6 +4,7 @@
 Задачи: извлечение сущностей (structured JSON) и генерация ответов.
 """
 import json
+import re
 import time
 import httpx
 from .config import settings
@@ -83,6 +84,11 @@ ANSWER_SYSTEM = (
 
 def _ollama_chat(system: str, user: str, fmt: dict | None = None,
                  max_tokens: int = 2000) -> str:
+    # Qwen3 по умолчанию «думает» (<think>...</think>) — это ломает JSON и мусорит
+    # в ответах. Отключаем через /no_think в системном промпте + think=false.
+    is_qwen3 = "qwen3" in settings.llm_model.lower()
+    if is_qwen3:
+        system = system + " /no_think"
     payload = {
         "model": settings.llm_model,
         "messages": [
@@ -92,17 +98,21 @@ def _ollama_chat(system: str, user: str, fmt: dict | None = None,
         "stream": False,
         "options": {"temperature": 0.1, "num_predict": max_tokens},
     }
+    if is_qwen3:
+        payload["think"] = False
     if fmt:
         payload["format"] = fmt
     r = httpx.post(f"{settings.ollama_host}/api/chat", json=payload, timeout=300)
     r.raise_for_status()
-    return r.json()["message"]["content"]
+    content = r.json()["message"]["content"]
+    # подчищаем возможные блоки размышлений Qwen3
+    return re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
 
 
 def _ollama_extract(chunk: str) -> ExtractionResult:
     raw = _ollama_chat(EXTRACT_SYSTEM, chunk, fmt=EXTRACT_SCHEMA)
     try:
-        return ExtractionResult(**json.loads(raw))
+        return ExtractionResult(**_extract_json(raw))
     except Exception:
         return ExtractionResult()
 

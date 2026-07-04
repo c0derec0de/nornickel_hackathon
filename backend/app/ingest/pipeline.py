@@ -53,6 +53,10 @@ def _run(reset, corpus_dir, max_files, name_filter, max_chunks_per_doc):
     cap = max_chunks_per_doc if max_chunks_per_doc is not None else settings.max_chunks_per_doc
     items = load_corpus(corpus_dir, max_files=max_files, name_filter=name_filter,
                         max_chunks_per_doc=cap)
+    # если корпус ещё не скачан — берём демо-сид, чтобы приложение работало из коробки
+    if not items and corpus_dir is None:
+        print("[ingest] корпус пуст — использую демо-сид data/seed")
+        items = load_corpus("data/seed", max_chunks_per_doc=cap)
 
     with _lock:
         STATUS["chunks_total"] = len(items)

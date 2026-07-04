@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # LLM провайдер: "ollama" (локальный, приватный), "openai" (OpenRouter и т.п.)
     #                или "anthropic"
     llm_provider: str = "ollama"
-    llm_model: str = "qwen2.5:14b-instruct"
+    llm_model: str = "qwen3:4b"
 
     # OpenAI-совместимый API (по умолчанию OpenRouter — разрешён в РФ)
     openai_base_url: str = "https://openrouter.ai/api/v1"

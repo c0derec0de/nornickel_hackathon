@@ -67,12 +67,14 @@ def run():
     check("чистый JSON", llm._extract_json('{"a":1}') == {"a": 1})
     check("```json fenced```", llm._extract_json('```json\n{"a":2}\n```') == {"a": 2})
     check("текст вокруг JSON", llm._extract_json('Вот: {"a":3} готово') == {"a": 3})
+    check("Qwen3 <think> отбрасывается",
+          llm._extract_json('<think>подумаю…</think>{"a":4}') == {"a": 4})
 
     print("== схема/дефолты ==")
     check("типы сущностей в enum",
           "Material" in llm.EXTRACT_SCHEMA["properties"]["entities"]["items"]["properties"]["type"]["enum"])
     check("провайдер по умолчанию ollama", settings.llm_provider == "ollama")
-    check("модель qwen по умолчанию", settings.llm_model.startswith("qwen2.5"))
+    check("модель qwen по умолчанию", settings.llm_model.startswith("qwen"))
 
     # опционально: реальный корпус (если скачан)
     corpus = os.path.join(os.path.dirname(__file__), "..", "data", "corpus")

@@ -45,7 +45,7 @@ services:
       # OpenRouter — альтернатива через .env. На Mac для скорости (Metal):
       # OLLAMA_HOST=http://host.docker.internal:11434 + свой `ollama serve` на хосте.
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
-      LLM_MODEL: ${LLM_MODEL:-qwen2.5:14b-instruct}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://openrouter.ai/api/v1}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
@@ -95,7 +95,7 @@ services:
     container_name: scigraph-ollama-pull
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["/bin/sh", "-c", "ollama pull ${LLM_MODEL:-qwen2.5:14b-instruct}"]
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${LLM_MODEL:-qwen3:4b}"]
     restart: "no"
     depends_on:
       ollama:
