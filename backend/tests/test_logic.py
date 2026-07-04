@@ -72,7 +72,7 @@ def run():
     check("типы сущностей в enum",
           "Material" in llm.EXTRACT_SCHEMA["properties"]["entities"]["items"]["properties"]["type"]["enum"])
     check("провайдер по умолчанию ollama", settings.llm_provider == "ollama")
-    check("модель 3b по умолчанию", settings.llm_model == "qwen2.5:3b-instruct")
+    check("модель qwen по умолчанию", settings.llm_model.startswith("qwen2.5"))
 
     # опционально: реальный корпус (если скачан)
     corpus = os.path.join(os.path.dirname(__file__), "..", "data", "corpus")

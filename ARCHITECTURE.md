@@ -64,9 +64,9 @@
 ## Стек
 
 - Backend: Python 3.12, FastAPI, neo4j-driver, chromadb, fastembed (ONNX, без torch)
-- LLM: компактная **открытая 7B-модель** (`qwen2.5-7b-instruct`), провайдер настраивается через env:
-  **OpenRouter** (OpenAI-совместимый, разрешён в РФ) по умолчанию · **Ollama** локально (приватный) ·
-  Anthropic — опционально. Экономия ресурсов: 7B, не 70B, при сохранении точности извлечения.
+- LLM: **открытая модель Qwen2.5** (по умолчанию `qwen2.5:14b-instruct`, Q4 ≈9ГБ; легко сменить
+  на 3b/7b под железо), провайдер настраивается через env: **Ollama** локально (приватный,
+  по умолчанию) · **OpenRouter** (OpenAI-совместимый, разрешён в РФ) · Anthropic — опционально.
 - Эмбеддинги: `multilingual-e5-large` через fastembed (ONNX, CPU, RU/EN)
 - Frontend: React + Vite, react-force-graph-2d, SSE-стриминг ответов
 - Инфра: docker-compose (neo4j, chroma, backend, frontend)
