@@ -69,6 +69,10 @@ def run():
     check("текст вокруг JSON", llm._extract_json('Вот: {"a":3} готово') == {"a": 3})
     check("Qwen3 <think> отбрасывается",
           llm._extract_json('<think>подумаю…</think>{"a":4}') == {"a": 4})
+    check("_strip_think чистит ответ",
+          llm._strip_think('<think>ммм</think>Ответ: 42') == 'Ответ: 42')
+    check("_no_think добавляет /no_think для qwen3",
+          llm._no_think("SYS").endswith("/no_think"))
 
     print("== схема/дефолты ==")
     check("типы сущностей в enum",

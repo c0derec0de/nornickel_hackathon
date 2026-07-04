@@ -80,15 +80,27 @@ ANSWER_SYSTEM = (
 )
 
 
+# ===================== Общее =====================
+
+def _is_qwen3() -> bool:
+    return "qwen3" in settings.llm_model.lower()
+
+
+def _no_think(system: str) -> str:
+    """Qwen3 по умолчанию «думает» (<think>...</think>) — глушим для любого провайдера."""
+    return system + " /no_think" if _is_qwen3() else system
+
+
+def _strip_think(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
 # ===================== Ollama =====================
 
 def _ollama_chat(system: str, user: str, fmt: dict | None = None,
                  max_tokens: int = 2000) -> str:
-    # Qwen3 по умолчанию «думает» (<think>...</think>) — это ломает JSON и мусорит
-    # в ответах. Отключаем через /no_think в системном промпте + think=false.
-    is_qwen3 = "qwen3" in settings.llm_model.lower()
-    if is_qwen3:
-        system = system + " /no_think"
+    is_qwen3 = _is_qwen3()
+    system = _no_think(system)
     payload = {
         "model": settings.llm_model,
         "messages": [
@@ -104,9 +116,7 @@ def _ollama_chat(system: str, user: str, fmt: dict | None = None,
         payload["format"] = fmt
     r = httpx.post(f"{settings.ollama_host}/api/chat", json=payload, timeout=300)
     r.raise_for_status()
-    content = r.json()["message"]["content"]
-    # подчищаем возможные блоки размышлений Qwen3
-    return re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    return _strip_think(r.json()["message"]["content"])
 
 
 def _ollama_extract(chunk: str) -> ExtractionResult:
@@ -129,7 +139,7 @@ def _ollama_answer(question: str, context: str) -> str:
 
 def _openai_chat(system: str, user: str, json_mode: bool = False,
                  max_tokens: int = 2000, max_retries: int = 5) -> str:
-    headers = {"Authorization": f"Bearer {settings.openai_api_key}",
+    headers = {"Authorization": f"Bearer {settings.openai_api_key or 'not-needed'}",
                "Content-Type": "application/json",
                # необязательные заголовки OpenRouter для атрибуции
                "HTTP-Referer": "https://scigraph.local",
@@ -137,7 +147,7 @@ def _openai_chat(system: str, user: str, json_mode: bool = False,
     payload = {
         "model": settings.llm_model,
         "messages": [
-            {"role": "system", "content": system},
+            {"role": "system", "content": _no_think(system)},
             {"role": "user", "content": user},
         ],
         "temperature": 0.1,
@@ -155,7 +165,7 @@ def _openai_chat(system: str, user: str, json_mode: bool = False,
         if r.status_code == 200:
             data = r.json()
             if "choices" in data:
-                return data["choices"][0]["message"]["content"]
+                return _strip_think(data["choices"][0]["message"]["content"])
             last_err = data.get("error")
         elif r.status_code in (429, 500, 502, 503):
             retry_after = None
