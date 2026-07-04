@@ -1,0 +1,79 @@
+services:
+  neo4j:
+    image: neo4j:5.24-community
+    container_name: scigraph-neo4j
+    ports:
+      - "7474:7474"   # Neo4j Browser
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/scigraph123
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  chroma:
+    image: chromadb/chroma:0.5.20
+    container_name: scigraph-chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  backend:
+    build: ./backend
+    container_name: scigraph-backend
+    ports:
+      - "8010:8000"
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: scigraph123
+      CHROMA_HOST: chroma
+      CHROMA_PORT: "8000"
+      # LLM: локальный Ollama по умолчанию (приватно); OpenRouter — альтернатива через .env
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b-instruct}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend:/app
+      - hf_cache:/root/.cache
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: scigraph-frontend
+    ports:
+      - "5273:5173"
+    environment:
+      VITE_API_BASE: http://localhost:8010
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  neo4j_data:
+  chroma_data:
+  hf_cache:
