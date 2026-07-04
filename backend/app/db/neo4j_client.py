@@ -101,6 +101,19 @@ class Neo4jClient:
                     })
         return list(nodes.values()), edges
 
+    def entities_from_sources(self, docs: list[str], limit: int = 40):
+        """Сущности, извлечённые из указанных документов — надёжный сид для подграфа."""
+        if not docs:
+            return []
+        with self.driver.session() as s:
+            res = s.run(
+                """
+                MATCH (n:Entity)
+                WHERE any(x IN coalesce(n.sources, []) WHERE x IN $docs)
+                RETURN n.name AS name LIMIT $limit
+                """, docs=docs, limit=limit)
+            return [r["name"] for r in res]
+
     def find_contradictions(self, limit: int = 20):
         with self.driver.session() as s:
             res = s.run(

@@ -96,6 +96,16 @@ curl http://localhost:8010/ingest/status
 | GET  | `/stats` | Статистика графа и векторов |
 | GET  | `/health` | Проверка живости |
 
+## Тесты
+
+Юнит-тесты чистой логики (без БД/LLM/сети) — онтология, чанкинг, парсинг docx,
+схемы извлечения, backoff-ретраи провайдера:
+```bash
+cd backend
+PYTHONPATH=. python tests/test_logic.py
+PYTHONPATH=. python tests/test_llm_backoff.py
+```
+
 ## Демо-сценарии (сид-корпус)
 
 1. Обессоливание воды при сульфатах 200–300 мг/л, сухой остаток ≤1000 мг/дм³.
