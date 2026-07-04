@@ -156,9 +156,10 @@ def _openai_chat(system: str, user: str, json_mode: bool = False,
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
 
-    # backoff на 429/5xx — free-tier OpenRouter часто rate-limit'ит
+    # backoff на 429/5xx (free-tier OpenRouter) + деградация при неподдержке response_format
     delay = 3.0
     last_err = None
+    dropped_json = False
     for attempt in range(max_retries):
         r = httpx.post(f"{settings.openai_base_url}/chat/completions",
                        json=payload, headers=headers, timeout=180)
@@ -167,7 +168,14 @@ def _openai_chat(system: str, user: str, json_mode: bool = False,
             if "choices" in data:
                 return _strip_think(data["choices"][0]["message"]["content"])
             last_err = data.get("error")
-        elif r.status_code in (429, 500, 502, 503):
+            break
+        if r.status_code == 400 and "response_format" in payload and not dropped_json:
+            # некоторые OpenAI-совместимые серверы (старый LM Studio) не понимают
+            # response_format — убираем его и повторяем (JSON вытащит _extract_json)
+            payload.pop("response_format")
+            dropped_json = True
+            continue
+        if r.status_code in (429, 500, 502, 503):
             retry_after = None
             try:
                 retry_after = r.json().get("error", {}).get("metadata", {}).get("retry_after_seconds")
@@ -177,9 +185,9 @@ def _openai_chat(system: str, user: str, json_mode: bool = False,
             delay = min(delay * 1.8, 30)
             last_err = f"HTTP {r.status_code}"
             continue
-        else:
-            r.raise_for_status()
-    raise RuntimeError(f"OpenRouter недоступен после {max_retries} попыток: {last_err}")
+        # прочие ошибки — с телом ответа для диагностики
+        raise RuntimeError(f"LLM API {r.status_code}: {r.text[:300]}")
+    raise RuntimeError(f"LLM API недоступен после {max_retries} попыток: {last_err}")
 
 
 def _extract_json(raw: str) -> dict:

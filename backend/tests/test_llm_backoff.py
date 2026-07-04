@@ -69,6 +69,20 @@ def run():
         check("бросил RuntimeError", True)
         check("ровно 4 попытки", calls2["n"] == 4, f"n={calls2['n']}")
 
+    print("== 400 на response_format → повтор без него ==")
+    seen = []
+
+    def post_400_then_ok(url, json=None, headers=None, timeout=None):
+        seen.append("response_format" in json)
+        if len(seen) == 1:
+            return FakeResp(400, {"error": {"message": "response_format not supported"}})
+        return FakeResp(200, {"choices": [{"message": {"content": "ok"}}]})
+
+    llm.httpx.post = post_400_then_ok
+    out = llm._openai_chat("s", "u", json_mode=True)
+    check("вернул ответ после деградации", out == "ok")
+    check("1-й запрос с response_format, 2-й без", seen == [True, False], f"seen={seen}")
+
     print("== extract: JSON и битый ответ ==")
     llm.httpx.post = lambda *a, **k: FakeResp(200, {"choices": [{"message": {"content":
         '{"entities":[{"name":"никель","type":"Material"}],"relations":[]}'}}]})
